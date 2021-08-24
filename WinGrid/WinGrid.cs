@@ -9,15 +9,17 @@ using System.Windows.Forms;
 using System.Windows.Threading;
 using Application = System.Windows.Application;
 
-namespace WinGrid
+namespace WinGridApp
 {
     public class WinGrid
     {
         private List<KeyboardHook> Hooks = new List<KeyboardHook>();
         private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
+        private ConfigurationManager Configuration;
 
         public WinGrid()
         {
+            Configuration = new ConfigurationManager();
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, Close));
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direction.Left, false)));
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direction.Right, false)));
@@ -29,25 +31,44 @@ namespace WinGrid
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, true)));
         }
 
-
-        private PInvoke.RECT Rect = new PInvoke.RECT()
-        {
-            Left = 0,
-            Right = 1080 / 3,
-            Top = 0,
-            Bottom = 1200,
-        };
-
         public void MoveWindow(Direction direction, bool expand)
         {
             var handleForeground = PInvoke.GetForegroundWindow();
 
             var rect = new PInvoke.RECT();
             var success = PInvoke.GetWindowRect(handleForeground, ref rect);
-            Console.WriteLine($"Current position = {rect.Left},{rect.Top},{rect.Right},{rect.Bottom}");
-            Rect.Left = Rect.Left >= 1920 * 2 / 3 ? 0 : (Rect.Left + 1920 / 3);
-            Rect.Right = (Rect.Left + 1920 / 3);
-            PInvoke.SetWindowRect(handleForeground, Rect);
+            int w = rect.Right - rect.Left;
+            int h = rect.Bottom - rect.Top;
+            if(success)
+            {
+                var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, w, h));
+
+                if(direction == Direction.Up)
+                {
+                    rect.Top = newSector.Top;
+                    if(!expand)
+                        rect.Bottom = newSector.Bottom;
+                }
+                else if(direction == Direction.Down)
+                {
+                    rect.Bottom = newSector.Bottom;
+                    if (!expand)
+                        rect.Top = newSector.Top;
+                }
+                else if (direction == Direction.Left)
+                {
+                    rect.Left = newSector.Left;
+                    if (!expand)
+                        rect.Right = newSector.Right;
+                }
+                else //if (direction == Direction.Right)
+                {
+                    rect.Right = newSector.Right;
+                    if (!expand)
+                        rect.Left = newSector.Left;
+                }
+                PInvoke.SetWindowRect(handleForeground, rect);
+            }
         }
 
         private void Close()

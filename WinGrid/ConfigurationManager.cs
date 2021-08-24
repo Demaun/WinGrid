@@ -12,7 +12,7 @@ using System.Windows.Forms;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
-namespace WinGrid
+namespace WinGridApp
 {
     public class ConfigurationManager
     {
@@ -20,7 +20,7 @@ namespace WinGrid
         private Dictionary<Rectangle, WinGridConfig> Configs;
 
         public Rectangle Bounds = new Rectangle();
-        private const int Interval = 5;
+        private const int Interval = 1;
         private static readonly Size Left =  new Size(-Interval, 0);
         private static readonly Size Right = new Size(Interval, 0);
         private static readonly Size Up =    new Size(0, -Interval);
@@ -52,13 +52,25 @@ namespace WinGrid
             } while (Bounds.Contains(point) && !screen.WorkingArea.Contains(point) && screen.Bounds.Contains(point));
             
             screen = Screen.FromPoint(point);
-            var config = Configs[screen.WorkingArea];
+
+            if(!screen.WorkingArea.Contains(point))
+            {
+                point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
+                                  Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+            }
+
+            var config = Configs[screen.Bounds];
             double x, y, w, h;
             w = screen.WorkingArea.Width / (double)config.WidthDivisions;
             h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-            x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w;
-            y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h;
+            x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+            y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
             return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+        }
+
+        public int Clamp(int value, int min, int max)
+        {
+            return Math.Max(min, Math.Min(value, max));
         }
 
         private Point GetEdge(Rectangle rect, Direction direction)
@@ -84,29 +96,13 @@ namespace WinGrid
             return point;
         }
 
-        private Point Average(params Point[] points)
-        {
-            if(points.Length == 0)
-            {
-                return new Point();
-            }
-
-            int x = 0, y = 0;
-            foreach(var point in points)
-            {
-                x += point.X;
-                y += point.Y;
-            }
-            return new Point(x / points.Length, y / points.Length);
-        }
-
         private void Validate()
         {
             foreach(var screen in Screen.AllScreens)
             {
-                if(!Configs.ContainsKey(screen.WorkingArea))
+                if(!Configs.ContainsKey(screen.Bounds))
                 {
-                    Configs.Add(screen.WorkingArea, new WinGridConfig(1, 1));
+                    Configs.Add(screen.Bounds, new WinGridConfig(1, 1));
                 }
                 Bounds = Rectangle.Union(Bounds, screen.WorkingArea);
             }
@@ -128,7 +124,7 @@ namespace WinGrid
 
         public void Serialize()
         {
-            File.WriteAllText(ConfigPath, JsonConvert.SerializeObject(Configs));
+            File.WriteAllText(ConfigPath, JsonConvert.SerializeObject(Configs, Formatting.Indented));
         }
     }
 }

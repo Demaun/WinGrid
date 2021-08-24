@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinGrid
+namespace WinGridApp
 {
 	/// <summary>
 	/// Converts the string representation of the name or numeric value of one or more enumerated constants to an equivalent enumerated object.

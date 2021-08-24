@@ -1,9 +1,9 @@
-﻿<Window x:Class="WinGrid.MainWindow"
+﻿<Window x:Class="WinGridApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:WinGrid"
+        xmlns:local="clr-namespace:WinGridApp"
         mc:Ignorable="d"
         Height="0" Width="0"
         Background="{x:Null}"
@@ -11,5 +11,6 @@
         WindowStyle="None"
         ShowInTaskbar="False"
         Visibility="Collapsed"
-        WindowState="Minimized">
+        WindowState="Minimized"
+        Loaded="Window_Loaded">
 </Window>

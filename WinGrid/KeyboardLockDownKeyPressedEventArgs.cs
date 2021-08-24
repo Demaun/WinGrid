@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinGrid
+namespace WinGridApp
 {
 	/// <summary>
 	/// Provides information regarding KeyboardLockDownKeyPressed events.
