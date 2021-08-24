@@ -8,7 +8,6 @@ namespace WinGrid
 {
     public class WinGridConfig
     {
-        public int WidthDivisions = 3;
-        public int HeightDivisions = 2;
+        public Dictionary<string, (int WidthDivisions, int HeightDivisions)> Configurations = new Dictionary<string, (int WidthDivisions, int HeightDivisions)>();
     }
 }
