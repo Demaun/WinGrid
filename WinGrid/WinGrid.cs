@@ -21,17 +21,24 @@ namespace WinGridApp
         {
             Configuration = new ConfigurationManager();
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, Close));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direction.Left, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direction.Right, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up, () => MoveWindow(Direction.Up, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down, () => MoveWindow(Direction.Down, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, true)));
+
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                              () => MoveWindow(Direction.Left,   MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right,                             () => MoveWindow(Direction.Right,  MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up,                                () => MoveWindow(Direction.Up,     MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down,                              () => MoveWindow(Direction.Down,   MoveType.Normal)));
+            
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left,                 () => MoveWindow(Direction.Left,   MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right,                () => MoveWindow(Direction.Right,  MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up,                   () => MoveWindow(Direction.Up,     MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down,                 () => MoveWindow(Direction.Down,   MoveType.Expand)));
+
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left,  () => MoveWindow(Direction.Left,   MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right,  MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up,    () => MoveWindow(Direction.Up,     MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down,  () => MoveWindow(Direction.Down,   MoveType.Contract)));
         }
 
-        public void MoveWindow(Direction direction, bool expand)
+        public void MoveWindow(Direction direction, MoveType moveType)
         {
             var handleForeground = PInvoke.GetForegroundWindow();
 
@@ -39,33 +46,63 @@ namespace WinGridApp
             var success = PInvoke.GetWindowRect(handleForeground, ref rect);
             int w = rect.Right - rect.Left;
             int h = rect.Bottom - rect.Top;
+
             if(success)
             {
-                var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, w, h));
+                var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, w, h), moveType == MoveType.Contract);
+                int minW = newSector.Width;
+                int minH = newSector.Height;
 
-                if(direction == Direction.Up)
+                bool expand = moveType == MoveType.Expand;
+                if(moveType != MoveType.Contract)
                 {
-                    rect.Top = newSector.Top;
-                    if(!expand)
-                        rect.Bottom = newSector.Bottom;
-                }
-                else if(direction == Direction.Down)
-                {
-                    rect.Bottom = newSector.Bottom;
-                    if (!expand)
+                    if(direction == Direction.Up)
+                    {
                         rect.Top = newSector.Top;
-                }
-                else if (direction == Direction.Left)
-                {
-                    rect.Left = newSector.Left;
-                    if (!expand)
-                        rect.Right = newSector.Right;
-                }
-                else //if (direction == Direction.Right)
-                {
-                    rect.Right = newSector.Right;
-                    if (!expand)
+                        if(!expand)
+                            rect.Bottom = newSector.Bottom;
+                    }
+                    else if(direction == Direction.Down)
+                    {
+                        rect.Bottom = newSector.Bottom;
+                        if (!expand)
+                            rect.Top = newSector.Top;
+                    }
+                    else if (direction == Direction.Left)
+                    {
                         rect.Left = newSector.Left;
+                        if (!expand)
+                            rect.Right = newSector.Right;
+                    }
+                    else //if (direction == Direction.Right)
+                    {
+                        rect.Right = newSector.Right;
+                        if (!expand)
+                            rect.Left = newSector.Left;
+                    }
+                }
+                else
+                {
+                    if (direction == Direction.Up)
+                    {
+                        rect.Bottom = newSector.Bottom;
+                        rect.Top = Math.Min(rect.Top, rect.Bottom - minH);
+                    }
+                    else if (direction == Direction.Down)
+                    {
+                        rect.Top = newSector.Top;
+                        rect.Bottom = Math.Max(rect.Bottom, rect.Top + minH);
+                    }
+                    else if (direction == Direction.Left)
+                    {
+                        rect.Right = newSector.Right;
+                        rect.Left = Math.Min(rect.Left, rect.Right - minW);
+                    }
+                    else //if (direction == Direction.Right)
+                    {
+                        rect.Left = newSector.Left;
+                        rect.Right = Math.Max(rect.Right, rect.Left + minW);
+                    }
                 }
                 PInvoke.SetWindowRect(handleForeground, rect);
             }

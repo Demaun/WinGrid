@@ -39,33 +39,63 @@ namespace WinGridApp
             Deserialize();
         }
 
-        public Rectangle GetSector(Direction direction, Rectangle fromSector)
+        public Rectangle GetSector(Direction direction, Rectangle fromSector, bool contract)
         {
-            Point point = GetEdge(fromSector, direction);
+            Point point = GetEdge(fromSector, direction, contract);
 
-
-            var screen = Screen.FromPoint(point);
-            do
+            if(contract)
             {
-                point = Point.Add(point, Cardinal[direction]);
+                var screen = Screen.FromPoint(point);
+                var config = Configs[screen.Bounds];
+                double x, y, w, h;
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
 
-            } while (Bounds.Contains(point) && !screen.WorkingArea.Contains(point) && screen.Bounds.Contains(point));
-            
-            screen = Screen.FromPoint(point);
+                point.X += (int)(Cardinal[direction].Width * (w + Interval));
+                point.Y += (int)(Cardinal[direction].Height * (h + Interval));
 
-            if(!screen.WorkingArea.Contains(point))
-            {
-                point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
-                                  Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+                screen = Screen.FromPoint(point);
+                config = Configs[screen.Bounds];
+
+                if (!screen.WorkingArea.Contains(point))
+                {
+                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
+                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+                }
+
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+
+                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
+
+                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
             }
+            else
+            {
+                var screen = Screen.FromPoint(point);
+                do
+                {
+                    point = Point.Add(point, Cardinal[direction]);
 
-            var config = Configs[screen.Bounds];
-            double x, y, w, h;
-            w = screen.WorkingArea.Width / (double)config.WidthDivisions;
-            h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-            x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
-            y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
-            return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+                } while (Bounds.Contains(point) && !screen.WorkingArea.Contains(point) && screen.Bounds.Contains(point));
+            
+                screen = Screen.FromPoint(point);
+
+                if(!screen.WorkingArea.Contains(point))
+                {
+                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
+                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+                }
+
+                var config = Configs[screen.Bounds];
+                double x, y, w, h;
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
+                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+            }
         }
 
         public int Clamp(int value, int min, int max)
@@ -73,25 +103,25 @@ namespace WinGridApp
             return Math.Max(min, Math.Min(value, max));
         }
 
-        private Point GetEdge(Rectangle rect, Direction direction)
+        private Point GetEdge(Rectangle rect, Direction direction, bool opposite)
         {
             Point point = new Point();
 
             if (direction == Direction.Up)
             {
-                point = new Point(rect.Left + rect.Width / 2, rect.Top);
+                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Bottom : rect.Top);
             }
             else if (direction == Direction.Down)
             {
-                point = new Point(rect.Left + rect.Width / 2, rect.Bottom);
+                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Top : rect.Bottom);
             }
             else if (direction == Direction.Left)
             {
-                point = new Point(rect.Left, rect.Top + rect.Height / 2);
+                point = new Point(opposite ? rect.Right : rect.Left, rect.Top + rect.Height / 2);
             }
             else
             {
-                point = new Point(rect.Right, rect.Top + rect.Height / 2);
+                point = new Point(opposite ? rect.Left : rect.Right, rect.Top + rect.Height / 2);
             }
             return point;
         }

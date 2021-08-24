@@ -8,6 +8,12 @@ namespace WinGridApp
 {
 	//via https://github.com/refactorsaurusrex/KeyboardHook/blob/master/KeyboardHookReduxSample/
 
+	public enum MoveType
+    {
+		Normal,
+		Expand,
+		Contract
+    }
 	public enum Direction
     {
 		Up,
