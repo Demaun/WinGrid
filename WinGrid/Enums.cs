@@ -8,7 +8,7 @@ namespace WinGrid
 {
 	//via https://github.com/refactorsaurusrex/KeyboardHook/blob/master/KeyboardHookReduxSample/
 
-	public enum Direciton
+	public enum Direction
     {
 		Up,
 		Down,

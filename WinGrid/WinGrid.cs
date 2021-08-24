@@ -19,25 +19,16 @@ namespace WinGrid
         public WinGrid()
         {
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, Close));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direciton.Left, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direciton.Right, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up, () => MoveWindow(Direciton.Up, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down, () => MoveWindow(Direciton.Down, false)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direciton.Left, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direciton.Right, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direciton.Up, true)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direciton.Down, true)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direction.Left, false)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direction.Right, false)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up, () => MoveWindow(Direction.Up, false)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down, () => MoveWindow(Direction.Down, false)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, true)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, true)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, true)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, true)));
         }
 
-        public string GetScreenID(Screen screen)
-        {
-            var input = $"{screen.DeviceName}{screen.WorkingArea.X}{screen.WorkingArea.Y}{screen.WorkingArea.Width}{screen.WorkingArea.Height}";
-            using (var hasher = MD5.Create())
-            {
-                var bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
-                return Encoding.ASCII.GetString(bytes);
-            }
-        }
 
         private PInvoke.RECT Rect = new PInvoke.RECT()
         {
@@ -47,7 +38,7 @@ namespace WinGrid
             Bottom = 1200,
         };
 
-        public void MoveWindow(Direciton direction, bool expand)
+        public void MoveWindow(Direction direction, bool expand)
         {
             var handleForeground = PInvoke.GetForegroundWindow();
 
