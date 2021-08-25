@@ -20,7 +20,11 @@ namespace WinGridApp
         public WinGrid()
         {
             Configuration = new ConfigurationManager();
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, Close));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, ()=>
+            {
+                var dlg = new ConfigurationWindow(this, Configuration);
+                dlg.Show();
+            }));
 
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                              () => MoveWindow(Direction.Left,   MoveType.Normal)));
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right,                             () => MoveWindow(Direction.Right,  MoveType.Normal)));
@@ -108,7 +112,7 @@ namespace WinGridApp
             }
         }
 
-        private void Close()
+        public void Close()
         {
             Console.WriteLine("Closing...");
 

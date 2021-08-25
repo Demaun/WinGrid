@@ -17,9 +17,9 @@ namespace WinGridApp
     public class ConfigurationManager
     {
         private static readonly string ConfigPath = "config.json";
-        private Dictionary<Rectangle, WinGridConfig> Configs;
+        public Dictionary<Rectangle, WinGridConfig> Configs { get; private set; }
 
-        public Rectangle Bounds = new Rectangle();
+        public Rectangle Bounds { get; set; } = new Rectangle();
         private const int Interval = 1;
         private static readonly Size Left =  new Size(-Interval, 0);
         private static readonly Size Right = new Size(Interval, 0);
@@ -128,12 +128,20 @@ namespace WinGridApp
 
         private void Validate()
         {
+            Bounds = new Rectangle();
             foreach(var screen in Screen.AllScreens)
             {
                 if(!Configs.ContainsKey(screen.Bounds))
                 {
-                    Configs.Add(screen.Bounds, new WinGridConfig(1, 1));
+                    var config = new WinGridConfig(1, 1);
+                    Configs.Add(screen.Bounds, config);
+                    config.Visibility = Visibility.Visible;
                 }
+                else
+                {
+                    Configs[screen.Bounds].Visibility = Visibility.Visible;
+                }
+
                 Bounds = Rectangle.Union(Bounds, screen.WorkingArea);
             }
         }
