@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -150,6 +151,7 @@ namespace WinGridApp
         {
             try
             {
+                Environment.CurrentDirectory = System.Reflection.Assembly.GetExecutingAssembly().Location;
                 Configs = JsonConvert.DeserializeObject<Dictionary<Rectangle, WinGridConfig>>(File.ReadAllText(ConfigPath));
             }
             catch
