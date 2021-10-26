@@ -17,10 +17,11 @@ namespace WinGridApp
             {
                 lock (this)
                 {
-                    if (ConfigWindow != null)
+                    if (ConfigWindow == null)
                     {
                         ConfigWindow = new ConfigurationWindow(this, Configuration);
                         ConfigWindow.Show();
+                        ConfigWindow.Activate();
                     }
                     else
                     {
@@ -64,7 +65,7 @@ namespace WinGridApp
             {Direction.Down, Down }
         };
 
-        
+
 
         public void MoveWindow(Direction direction, MoveType moveType)
         {
@@ -74,7 +75,7 @@ namespace WinGridApp
             var success = PInvoke.GetWindowRect(handleForeground, ref rect);
 
             if (!success) return;
-            
+
             switch (moveType)
             {
                 case MoveType.Normal:
@@ -91,27 +92,52 @@ namespace WinGridApp
 
         private void TranslateWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
 
-            if (direction == Direction.Up)
+            if (!IsAligned(rect))
             {
-                rect.Top = newSector.Top;
-                rect.Bottom = newSector.Bottom;
+                // If we're not ON grid, move to the enclosing sector,
+                // and fill the screen in the non-given axis.
+                var screen = Screen.FromPoint(rect.Center);
+                var sector = GetSector(rect.Center);
+
+                if (direction == Direction.Down || direction == Direction.Up)
+                {
+                    rect.Left = screen.WorkingArea.Left;
+                    rect.Right = screen.WorkingArea.Right;
+                    rect.Top = sector.Top;
+                    rect.Bottom = sector.Bottom;
+                }
+                else
+                {
+                    rect.Top = screen.WorkingArea.Top;
+                    rect.Bottom = screen.WorkingArea.Bottom;
+                    rect.Left = sector.Left;
+                    rect.Right = sector.Right;
+                }
             }
-            else if (direction == Direction.Down)
+            else
             {
-                rect.Bottom = newSector.Bottom;
-                rect.Top = newSector.Top;
-            }
-            else if (direction == Direction.Left)
-            {
-                rect.Left = newSector.Left;
-                rect.Right = newSector.Right;
-            }
-            else //if (direction == Direction.Right)
-            {
-                rect.Right = newSector.Right;
-                rect.Left = newSector.Left;
+                var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), false);
+                if (direction == Direction.Up)
+                {
+                    rect.Top = newSector.Top;
+                    rect.Bottom = newSector.Bottom;
+                }
+                else if (direction == Direction.Down)
+                {
+                    rect.Bottom = newSector.Bottom;
+                    rect.Top = newSector.Top;
+                }
+                else if (direction == Direction.Left)
+                {
+                    rect.Left = newSector.Left;
+                    rect.Right = newSector.Right;
+                }
+                else //if (direction == Direction.Right)
+                {
+                    rect.Right = newSector.Right;
+                    rect.Left = newSector.Left;
+                }
             }
 
             PInvoke.SetWindowRect(handle, rect);
@@ -119,7 +145,7 @@ namespace WinGridApp
 
         private void ExpandWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
+            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), false);
 
             if (direction == Direction.Up)
             {
@@ -143,7 +169,7 @@ namespace WinGridApp
 
         private void ContractWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), true);
+            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), true);
             int minW = newSector.Width;
             int minH = newSector.Height;
 
@@ -171,7 +197,45 @@ namespace WinGridApp
             PInvoke.SetWindowRect(handle, rect);
         }
 
+        public bool IsAligned(PInvoke.RECT rect)
+        {
+            var screen = Screen.FromPoint(new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2));
+            var config = Configuration.Configs[screen.Bounds];
+            rect.Left -= screen.WorkingArea.Left;
+            rect.Right -= screen.WorkingArea.Left;
+            rect.Top -= screen.WorkingArea.Top;
+            rect.Bottom -= screen.WorkingArea.Top;
 
+            const int tolerance = 2;
+            int w = screen.WorkingArea.Width / config.WidthDivisions;
+            int h = screen.WorkingArea.Height / config.HeightDivisions;
+            return rect.Left % w < tolerance &&
+                   rect.Right % w < tolerance &&
+                   rect.Top % h < tolerance &&
+                   rect.Bottom % h < tolerance;
+        }
+
+        /// <summary>
+        /// Get the sector encapsulating a given point.
+        /// </summary>
+        public Rectangle GetSector(Point fromPoint)
+        {
+            var screen = Screen.FromPoint(fromPoint);
+            var config = Configuration.Configs[screen.Bounds];
+            double x, y, w, h;
+
+            w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+            h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+
+            x = Math.Floor((fromPoint.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+            y = Math.Floor((fromPoint.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
+
+            return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+        }
+
+        /// <summary>
+        /// Get the sector adjacent to a given (potentially misaligned) zone.
+        /// </summary>
         public Rectangle GetSector(Direction direction, Rectangle fromSector, bool contract)
         {
             Point point = GetEdge(fromSector, direction, contract);

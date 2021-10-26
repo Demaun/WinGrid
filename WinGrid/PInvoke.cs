@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -65,20 +66,9 @@ namespace WinGridApp
             public int Top;
             public int Right;
             public int Bottom;
-            public int W => Right - Left;
-            public int H => Bottom - Top;
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+            public Point Center => new Point((Left + Right) / 2, (Top + Bottom) / 2);
         }
-
-        /*
-         public static void MoveWindowToMonitor(int monitor)
-        {
-            var windowHandler = GetActiveWindowHandle();
-
-            var windowRec = GetWindowRect(windowHandler);
-            // When I move a window to a different monitor it subtracts 16 from the Width and 38 from the Height, Not sure if this is on my system or others.
-            SetWindowPos(windowHandler, (IntPtr)SpecialWindowHandles.HWND_TOP, Screen.AllScreens[monitor].WorkingArea.Left,
-                    Screen.AllScreens[monitor].WorkingArea.Top, windowRec.Size.Width + 16, windowRec.Size.Height + 38,
-                    SetWindowPosFlags.SWP_SHOWWINDOW);
-        }*/
     }
 }
