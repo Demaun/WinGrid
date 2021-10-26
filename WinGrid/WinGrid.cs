@@ -1,31 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Threading;
 using Application = System.Windows.Application;
+using System.Drawing;
 
 namespace WinGridApp
 {
     public class WinGrid
     {
-        private List<KeyboardHook> Hooks = new List<KeyboardHook>();
-        private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
-        private ConfigurationManager Configuration;
-        private Window ConfigWindow;
-
         public WinGrid()
         {
             Configuration = new ConfigurationManager();
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, ()=>
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, () =>
             {
-                lock(this)
+                lock (this)
                 {
-                    if(ConfigWindow != null)
+                    if (ConfigWindow != null)
                     {
                         ConfigWindow = new ConfigurationWindow(this, Configuration);
                         ConfigWindow.Show();
@@ -38,21 +30,41 @@ namespace WinGridApp
                 }
             }));
 
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                              () => MoveWindow(Direction.Left,   MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right,                             () => MoveWindow(Direction.Right,  MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up,                                () => MoveWindow(Direction.Up,     MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down,                              () => MoveWindow(Direction.Down,   MoveType.Normal)));
-            
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left,                 () => MoveWindow(Direction.Left,   MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right,                () => MoveWindow(Direction.Right,  MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up,                   () => MoveWindow(Direction.Up,     MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down,                 () => MoveWindow(Direction.Down,   MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Normal)));
 
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left,  () => MoveWindow(Direction.Left,   MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right,  MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up,    () => MoveWindow(Direction.Up,     MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down,  () => MoveWindow(Direction.Down,   MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Expand)));
+
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Contract)));
         }
+
+        private List<KeyboardHook> Hooks = new List<KeyboardHook>();
+        private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
+        private ConfigurationManager Configuration;
+        private System.Windows.Window ConfigWindow;
+
+        private const int Interval = 1;
+        private static readonly Size Left = new Size(-Interval, 0);
+        private static readonly Size Right = new Size(Interval, 0);
+        private static readonly Size Up = new Size(0, -Interval);
+        private static readonly Size Down = new Size(0, Interval);
+        private static readonly Dictionary<Direction, Size> Cardinal = new Dictionary<Direction, Size>
+        {
+            {Direction.Left, Left },
+            {Direction.Right, Right },
+            {Direction.Up, Up },
+            {Direction.Down, Down }
+        };
+
+        
 
         public void MoveWindow(Direction direction, MoveType moveType)
         {
@@ -79,7 +91,7 @@ namespace WinGridApp
 
         private void TranslateWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
+            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
 
             if (direction == Direction.Up)
             {
@@ -107,7 +119,7 @@ namespace WinGridApp
 
         private void ExpandWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
+            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
 
             if (direction == Direction.Up)
             {
@@ -131,7 +143,7 @@ namespace WinGridApp
 
         private void ContractWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
         {
-            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), true);
+            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.W, rect.H), true);
             int minW = newSector.Width;
             int minH = newSector.Height;
 
@@ -157,6 +169,94 @@ namespace WinGridApp
             }
 
             PInvoke.SetWindowRect(handle, rect);
+        }
+
+
+        public Rectangle GetSector(Direction direction, Rectangle fromSector, bool contract)
+        {
+            Point point = GetEdge(fromSector, direction, contract);
+
+            if (contract)
+            {
+                var screen = Screen.FromPoint(point);
+                var config = Configuration.Configs[screen.Bounds];
+                double x, y, w, h;
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+
+                point.X += (int)(Cardinal[direction].Width * (w + Interval));
+                point.Y += (int)(Cardinal[direction].Height * (h + Interval));
+
+                screen = Screen.FromPoint(point);
+                config = Configuration.Configs[screen.Bounds];
+
+                if (!screen.WorkingArea.Contains(point))
+                {
+                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
+                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+                }
+
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+
+                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
+
+                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+            }
+            else
+            {
+                var screen = Screen.FromPoint(point);
+                do
+                {
+                    point = Point.Add(point, Cardinal[direction]);
+
+                } while (Configuration.Bounds.Contains(point) && !screen.WorkingArea.Contains(point) && screen.Bounds.Contains(point));
+
+                screen = Screen.FromPoint(point);
+
+                if (!screen.WorkingArea.Contains(point))
+                {
+                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
+                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
+                }
+
+                var config = Configuration.Configs[screen.Bounds];
+                double x, y, w, h;
+                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
+                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
+                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
+                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
+                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+            }
+        }
+
+        public int Clamp(int value, int min, int max)
+        {
+            return Math.Max(min, Math.Min(value, max));
+        }
+
+        private Point GetEdge(Rectangle rect, Direction direction, bool opposite)
+        {
+            Point point = new Point();
+
+            if (direction == Direction.Up)
+            {
+                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Bottom : rect.Top);
+            }
+            else if (direction == Direction.Down)
+            {
+                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Top : rect.Bottom);
+            }
+            else if (direction == Direction.Left)
+            {
+                point = new Point(opposite ? rect.Right : rect.Left, rect.Top + rect.Height / 2);
+            }
+            else
+            {
+                point = new Point(opposite ? rect.Left : rect.Right, rect.Top + rect.Height / 2);
+            }
+            return point;
         }
 
         public void Close()
