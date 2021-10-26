@@ -31,20 +31,20 @@ namespace WinGridApp
                 }
             }));
 
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                                 () => MoveWindow(Direction.Left, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right,                                () => MoveWindow(Direction.Right, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up,                                   () => MoveWindow(Direction.Up, MoveType.Normal)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down,                                 () => MoveWindow(Direction.Down, MoveType.Normal)));
 
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left,                    () => MoveWindow(Direction.Left, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right,                   () => MoveWindow(Direction.Right, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up,                      () => MoveWindow(Direction.Up, MoveType.Expand)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down,                    () => MoveWindow(Direction.Down, MoveType.Expand)));
 
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left, () => MoveWindow(Direction.Left, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right, () => MoveWindow(Direction.Right, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up, () => MoveWindow(Direction.Up, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down, () => MoveWindow(Direction.Down, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left,     () => MoveWindow(Direction.Left, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right,    () => MoveWindow(Direction.Right, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up,       () => MoveWindow(Direction.Up, MoveType.Contract)));
+            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down,     () => MoveWindow(Direction.Down, MoveType.Contract)));
         }
 
         private List<KeyboardHook> Hooks = new List<KeyboardHook>();
@@ -65,7 +65,7 @@ namespace WinGridApp
             {Direction.Down, Down }
         };
 
-
+        #region Moving
 
         public void MoveWindow(Direction direction, MoveType moveType)
         {
@@ -197,6 +197,10 @@ namespace WinGridApp
             PInvoke.SetWindowRect(handle, rect);
         }
 
+        #endregion
+
+        #region Queries
+
         public bool IsAligned(PInvoke.RECT rect)
         {
             var screen = Screen.FromPoint(new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2));
@@ -295,14 +299,30 @@ namespace WinGridApp
             }
         }
 
-        public int Clamp(int value, int min, int max)
+        #endregion
+
+        #region Config Independent
+        public void Close()
+        {
+            Console.WriteLine("Closing...");
+
+            foreach (var hook in Hooks)
+            {
+                hook.Disengage();
+                hook.Dispose();
+            }
+
+            Application.Current.Shutdown();
+        }
+
+        public static int Clamp(int value, int min, int max)
         {
             return Math.Max(min, Math.Min(value, max));
         }
 
-        private Point GetEdge(Rectangle rect, Direction direction, bool opposite)
+        private static Point GetEdge(Rectangle rect, Direction direction, bool opposite)
         {
-            Point point = new Point();
+            Point point;
 
             if (direction == Direction.Up)
             {
@@ -323,19 +343,6 @@ namespace WinGridApp
             return point;
         }
 
-        public void Close()
-        {
-            Console.WriteLine("Closing...");
-
-            foreach (var hook in Hooks)
-            {
-                hook.Disengage();
-                hook.Dispose();
-            }
-
-            Application.Current.Shutdown();
-        }
-
         private KeyboardHook GetHook(KeysEx keys, Action action)
         {
             var hook = new KeyboardHook();
@@ -346,5 +353,7 @@ namespace WinGridApp
             hook.Engage();
             return hook;
         }
+
+        #endregion
     }
 }
