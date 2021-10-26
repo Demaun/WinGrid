@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using Application = System.Windows.Application;
 using System.Drawing;
 using Rect = WinGridApp.PInvoke.RECT;
+using System.Threading.Tasks;
 
 namespace WinGridApp
 {
@@ -53,6 +54,8 @@ namespace WinGridApp
         private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
         private ConfigurationManager Configuration;
         private System.Windows.Window ConfigWindow;
+        private Dictionary<IntPtr, AnimationArgs> CurrentAnimations = new Dictionary<IntPtr, AnimationArgs>();
+        private Task AnimationTask;
 
         private const int Interval = 1;
         private static readonly Size Left = new Size(-Interval, 0);
@@ -66,32 +69,144 @@ namespace WinGridApp
             {Direction.Up, Up },
             {Direction.Down, Down }
         };
+        private static readonly TimeSpan AnimationDuration = TimeSpan.FromMilliseconds(175);
+        private static readonly TimeSpan AnimationInterval = TimeSpan.FromSeconds(1 / 120d);
 
         #region Moving
 
         public void MoveWindow(Direction direction, MoveType moveType)
         {
+            Task.Run(() =>
+            {
+                var (ptr, start, end) = GetAnimationArgs(direction, moveType);
+                
+                lock (CurrentAnimations)
+                {
+                    if(CurrentAnimations.ContainsKey(ptr))
+                    {
+                        (ptr, start, end) = GetAnimationArgs(direction, moveType, ptr, CurrentAnimations[ptr].end);
+                        var args = new AnimationArgs()
+                        {
+                            ptr = ptr,
+                            t = 0,
+                            start = CurrentAnimations[ptr].current,
+                            end = end,
+                        };
+                        CurrentAnimations[ptr] = args;
+                    }
+                    else
+                    {
+                        var args = new AnimationArgs()
+                        {
+                            ptr = ptr,
+                            t = 0,
+                            start = start,
+                            end = end,
+                        };
+                        CurrentAnimations.Add(ptr, args);
+                    }
+                }
+                Animate();
+            });
+        }
+
+        private void Animate()
+        {
+            lock(this)
+            {
+                if(AnimationTask == null)
+                {
+                    AnimationTask = Task.Run(async () =>
+                    {
+                        HashSet<IntPtr> remove = new HashSet<IntPtr>();
+                        DateTime lastLoopTime = DateTime.Now - AnimationInterval;
+                        while(true)
+                        {
+                            remove.Clear();
+
+                            DateTime startTime = DateTime.Now;
+
+                            lock(CurrentAnimations)
+                            {
+                                foreach(var pair in CurrentAnimations)
+                                {
+                                    var args = pair.Value;
+                                    var dt = (startTime - lastLoopTime).TotalMilliseconds / AnimationDuration.TotalMilliseconds;
+                                    args.t = Easing.Clamp01(pair.Value.t + (float)dt);
+                                    var ts = Easing.SmoothEnd(args.t, 2, Easing.BoundType.Clamp);
+
+                                    var x = Easing.Lerp(args.start.Left, args.end.Left, ts);
+                                    var y = Easing.Lerp(args.start.Top, args.end.Top, ts);
+                                    var r = Easing.Lerp(args.start.Right, args.end.Right, ts);
+                                    var b = Easing.Lerp(args.start.Bottom, args.end.Bottom, ts);
+                                    args.current = new Rect(x, y, r, b);
+
+                                    PInvoke.SetWindowRect(args.ptr, args.current);
+                                    if(args.t >= 1)
+                                    {
+                                        remove.Add(args.ptr);
+                                    }
+                                }
+
+                                foreach(var ptr in remove)
+                                {
+                                    CurrentAnimations.Remove(ptr);
+                                }
+
+                                if (CurrentAnimations.Count == 0) break;
+                            }
+
+                            lastLoopTime = DateTime.Now;
+                            var waitDuration = DateTime.Now + AnimationInterval - startTime;
+                            if (waitDuration > TimeSpan.Zero)
+                            {
+                                await Task.Delay(waitDuration);
+                            }
+                            else
+                            {
+                                Console.WriteLine("ZeroWait");
+                            }
+                        }
+                    }).ContinueWith(t =>
+                    {
+                        lock(this)
+                        {
+                            AnimationTask = null;
+                        }
+                    });
+                }
+            }
+        }
+
+        private (IntPtr handle, Rect current, Rect target) GetAnimationArgs(Direction direction, MoveType moveType)
+        {
             var handleForeground = PInvoke.GetForegroundWindow();
 
-            var rect = new Rect();
-            var success = PInvoke.GetWindowRect(handleForeground, ref rect);
+            var start = new Rect();
+            var success = PInvoke.GetWindowRect(handleForeground, ref start);
 
-            if (!success) return;
-            
+            if (!success) return (IntPtr.Zero, new Rect(), new Rect());
+
+            return GetAnimationArgs(direction, moveType, handleForeground, start);
+        }
+        private (IntPtr handle, Rect current, Rect target) GetAnimationArgs(Direction direction, MoveType moveType, IntPtr handleForeground, Rect start)
+        {
+            var end = start;
+
             switch (moveType)
             {
                 case MoveType.Normal:
-                    rect = TranslateWindow(rect, direction);
+                    end = TranslateWindow(start, direction);
                     break;
                 case MoveType.Expand:
-                    rect = ExpandWindow(rect, direction);
+                    end = ExpandWindow(start, direction);
                     break;
                 case MoveType.Contract:
-                    rect = ContractWindow(rect, direction);
+                    end = ContractWindow(start, direction);
                     break;
             }
 
-            PInvoke.SetWindowRect(handleForeground, rect);
+            return (handleForeground, start, end);
         }
 
         private Rect TranslateWindow(Rect rect, Direction direction)
@@ -356,6 +471,15 @@ namespace WinGridApp
             hook.Pressed += (s, e) => Dispatcher.Invoke(action);
             hook.Engage();
             return hook;
+        }
+
+        private class AnimationArgs
+        {
+            public IntPtr ptr;
+            public float t;
+            public Rect start;
+            public Rect current;
+            public Rect end;
         }
 
         #endregion

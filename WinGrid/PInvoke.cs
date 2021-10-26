@@ -69,6 +69,21 @@ namespace WinGridApp
             public int Width => Right - Left;
             public int Height => Bottom - Top;
             public Point Center => new Point((Left + Right) / 2, (Top + Bottom) / 2);
+
+            public RECT(int left, int top, int right, int bottom)
+            {
+                Left = left;
+                Right = right;
+                Top = top;
+                Bottom = bottom;
+            }
+            public RECT(float left, float top, float right, float bottom)
+            {
+                Left = (int)Math.Round(left);
+                Right = (int)Math.Round(right);
+                Top = (int)Math.Round(top);
+                Bottom = (int)Math.Round(bottom);
+            }
         }
     }
 }
