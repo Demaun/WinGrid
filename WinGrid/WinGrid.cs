@@ -17,8 +17,9 @@ namespace WinGridApp
             {
                 lock (this)
                 {
-                    if (ConfigWindow == null)
+                    if (ConfigWindow == null || !ConfigWindow.IsVisible)
                     {
+                        ConfigWindow?.Close();
                         ConfigWindow = new ConfigurationWindow(this, Configuration);
                         ConfigWindow.Show();
                         ConfigWindow.Activate();
