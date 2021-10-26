@@ -5,8 +5,9 @@ using System.Windows.Forms;
 using System.Windows.Threading;
 using Application = System.Windows.Application;
 using System.Drawing;
-using Rect = WinGridApp.PInvoke.RECT;
+using Rect = PInvoke.RECT;
 using System.Threading.Tasks;
+using refactorsaurusrex;
 
 namespace WinGridApp
 {

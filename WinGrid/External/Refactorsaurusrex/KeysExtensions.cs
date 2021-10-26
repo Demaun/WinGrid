@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace WinGridApp
+namespace refactorsaurusrex
 {
 	//via https://github.com/refactorsaurusrex/KeyboardHook/blob/master/KeyboardHookReduxSample/
 	public static class KeysExtensions

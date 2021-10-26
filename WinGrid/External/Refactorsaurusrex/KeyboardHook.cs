@@ -7,7 +7,7 @@ using System.Security.Permissions;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinGridApp
+namespace refactorsaurusrex
 {
 	//via https://github.com/refactorsaurusrex/KeyboardHook/blob/master/KeyboardHookReduxSample/
 
