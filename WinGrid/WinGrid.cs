@@ -69,7 +69,7 @@ namespace WinGridApp
             {Direction.Up, Up },
             {Direction.Down, Down }
         };
-        private static readonly TimeSpan AnimationDuration = TimeSpan.FromMilliseconds(175);
+        private static readonly TimeSpan AnimationDuration = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan AnimationInterval = TimeSpan.FromSeconds(1 / 120d);
 
         #region Moving
