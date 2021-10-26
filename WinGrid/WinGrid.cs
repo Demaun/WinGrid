@@ -16,14 +16,26 @@ namespace WinGridApp
         private List<KeyboardHook> Hooks = new List<KeyboardHook>();
         private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
         private ConfigurationManager Configuration;
+        private Window ConfigWindow;
 
         public WinGrid()
         {
             Configuration = new ConfigurationManager();
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, ()=>
             {
-                var dlg = new ConfigurationWindow(this, Configuration);
-                dlg.Show();
+                lock(this)
+                {
+                    if(ConfigWindow != null)
+                    {
+                        ConfigWindow = new ConfigurationWindow(this, Configuration);
+                        ConfigWindow.Show();
+                    }
+                    else
+                    {
+                        ConfigWindow.Close();
+                        ConfigWindow = null;
+                    }
+                }
             }));
 
             Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                              () => MoveWindow(Direction.Left,   MoveType.Normal)));
@@ -48,68 +60,103 @@ namespace WinGridApp
 
             var rect = new PInvoke.RECT();
             var success = PInvoke.GetWindowRect(handleForeground, ref rect);
-            int w = rect.Right - rect.Left;
-            int h = rect.Bottom - rect.Top;
 
-            if(success)
+            if (!success) return;
+            
+            switch (moveType)
             {
-                var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, w, h), moveType == MoveType.Contract);
-                int minW = newSector.Width;
-                int minH = newSector.Height;
-
-                bool expand = moveType == MoveType.Expand;
-                if(moveType != MoveType.Contract)
-                {
-                    if(direction == Direction.Up)
-                    {
-                        rect.Top = newSector.Top;
-                        if(!expand)
-                            rect.Bottom = newSector.Bottom;
-                    }
-                    else if(direction == Direction.Down)
-                    {
-                        rect.Bottom = newSector.Bottom;
-                        if (!expand)
-                            rect.Top = newSector.Top;
-                    }
-                    else if (direction == Direction.Left)
-                    {
-                        rect.Left = newSector.Left;
-                        if (!expand)
-                            rect.Right = newSector.Right;
-                    }
-                    else //if (direction == Direction.Right)
-                    {
-                        rect.Right = newSector.Right;
-                        if (!expand)
-                            rect.Left = newSector.Left;
-                    }
-                }
-                else
-                {
-                    if (direction == Direction.Up)
-                    {
-                        rect.Bottom = newSector.Bottom;
-                        rect.Top = Math.Min(rect.Top, rect.Bottom - minH);
-                    }
-                    else if (direction == Direction.Down)
-                    {
-                        rect.Top = newSector.Top;
-                        rect.Bottom = Math.Max(rect.Bottom, rect.Top + minH);
-                    }
-                    else if (direction == Direction.Left)
-                    {
-                        rect.Right = newSector.Right;
-                        rect.Left = Math.Min(rect.Left, rect.Right - minW);
-                    }
-                    else //if (direction == Direction.Right)
-                    {
-                        rect.Left = newSector.Left;
-                        rect.Right = Math.Max(rect.Right, rect.Left + minW);
-                    }
-                }
-                PInvoke.SetWindowRect(handleForeground, rect);
+                case MoveType.Normal:
+                    TranslateWindow(handleForeground, rect, direction);
+                    break;
+                case MoveType.Expand:
+                    ExpandWindow(handleForeground, rect, direction);
+                    break;
+                case MoveType.Contract:
+                    ContractWindow(handleForeground, rect, direction);
+                    break;
             }
+        }
+
+        private void TranslateWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        {
+            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
+
+            if (direction == Direction.Up)
+            {
+                rect.Top = newSector.Top;
+                rect.Bottom = newSector.Bottom;
+            }
+            else if (direction == Direction.Down)
+            {
+                rect.Bottom = newSector.Bottom;
+                rect.Top = newSector.Top;
+            }
+            else if (direction == Direction.Left)
+            {
+                rect.Left = newSector.Left;
+                rect.Right = newSector.Right;
+            }
+            else //if (direction == Direction.Right)
+            {
+                rect.Right = newSector.Right;
+                rect.Left = newSector.Left;
+            }
+
+            PInvoke.SetWindowRect(handle, rect);
+        }
+
+        private void ExpandWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        {
+            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), false);
+
+            if (direction == Direction.Up)
+            {
+                rect.Top = newSector.Top;
+            }
+            else if (direction == Direction.Down)
+            {
+                rect.Bottom = newSector.Bottom;
+            }
+            else if (direction == Direction.Left)
+            {
+                rect.Left = newSector.Left;
+            }
+            else //if (direction == Direction.Right)
+            {
+                rect.Right = newSector.Right;
+            }
+
+            PInvoke.SetWindowRect(handle, rect);
+        }
+
+        private void ContractWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        {
+            var newSector = Configuration.GetSector(direction, new System.Drawing.Rectangle(rect.Left, rect.Top, rect.W, rect.H), true);
+            int minW = newSector.Width;
+            int minH = newSector.Height;
+
+            if (direction == Direction.Up)
+            {
+                rect.Bottom = newSector.Bottom;
+                rect.Top = Math.Min(rect.Top, rect.Bottom - minH);
+            }
+            else if (direction == Direction.Down)
+            {
+                rect.Top = newSector.Top;
+                rect.Bottom = Math.Max(rect.Bottom, rect.Top + minH);
+            }
+            else if (direction == Direction.Left)
+            {
+                rect.Right = newSector.Right;
+                rect.Left = Math.Min(rect.Left, rect.Right - minW);
+            }
+            else //if (direction == Direction.Right)
+            {
+                rect.Left = newSector.Left;
+                rect.Right = Math.Max(rect.Right, rect.Left + minW);
+            }
+
+            PInvoke.SetWindowRect(handle, rect);
         }
 
         public void Close()

@@ -65,6 +65,8 @@ namespace WinGridApp
             public int Top;
             public int Right;
             public int Bottom;
+            public int W => Right - Left;
+            public int H => Bottom - Top;
         }
 
         /*
