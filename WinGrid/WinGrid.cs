@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using System.Windows.Threading;
 using Application = System.Windows.Application;
 using System.Drawing;
+using Rect = WinGridApp.PInvoke.RECT;
 
 namespace WinGridApp
 {
@@ -72,26 +73,28 @@ namespace WinGridApp
         {
             var handleForeground = PInvoke.GetForegroundWindow();
 
-            var rect = new PInvoke.RECT();
+            var rect = new Rect();
             var success = PInvoke.GetWindowRect(handleForeground, ref rect);
 
             if (!success) return;
-
+            
             switch (moveType)
             {
                 case MoveType.Normal:
-                    TranslateWindow(handleForeground, rect, direction);
+                    rect = TranslateWindow(rect, direction);
                     break;
                 case MoveType.Expand:
-                    ExpandWindow(handleForeground, rect, direction);
+                    rect = ExpandWindow(rect, direction);
                     break;
                 case MoveType.Contract:
-                    ContractWindow(handleForeground, rect, direction);
+                    rect = ContractWindow(rect, direction);
                     break;
             }
+
+            PInvoke.SetWindowRect(handleForeground, rect);
         }
 
-        private void TranslateWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        private Rect TranslateWindow(Rect rect, Direction direction)
         {
 
             if (!IsAligned(rect))
@@ -141,10 +144,10 @@ namespace WinGridApp
                 }
             }
 
-            PInvoke.SetWindowRect(handle, rect);
+            return rect;
         }
 
-        private void ExpandWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        private Rect ExpandWindow(Rect rect, Direction direction)
         {
             var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), false);
 
@@ -165,10 +168,10 @@ namespace WinGridApp
                 rect.Right = newSector.Right;
             }
 
-            PInvoke.SetWindowRect(handle, rect);
+            return rect;
         }
 
-        private void ContractWindow(IntPtr handle, PInvoke.RECT rect, Direction direction)
+        private Rect ContractWindow(Rect rect, Direction direction)
         {
             var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), true);
             int minW = newSector.Width;
@@ -195,14 +198,14 @@ namespace WinGridApp
                 rect.Right = Math.Max(rect.Right, rect.Left + minW);
             }
 
-            PInvoke.SetWindowRect(handle, rect);
+            return rect;
         }
 
         #endregion
 
         #region Queries
 
-        public bool IsAligned(PInvoke.RECT rect)
+        public bool IsAligned(Rect rect)
         {
             var screen = Screen.FromPoint(new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2));
             var config = Configuration.Configs[screen.Bounds];
