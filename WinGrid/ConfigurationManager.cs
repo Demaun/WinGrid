@@ -51,8 +51,10 @@ namespace WinGridApp
         {
             try
             {
-                Environment.CurrentDirectory = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                Configs = JsonConvert.DeserializeObject<Dictionary<Rectangle, WinGridConfig>>(File.ReadAllText(ConfigPath));
+                var dir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                Environment.CurrentDirectory = dir;
+                var path = Path.GetFullPath(ConfigPath);
+                Configs = JsonConvert.DeserializeObject<Dictionary<Rectangle, WinGridConfig>>(File.ReadAllText(path));
             }
             catch
             {
