@@ -51,8 +51,6 @@ namespace WinGridApp
         {
             try
             {
-                var dir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-                Environment.CurrentDirectory = dir;
                 var path = Path.GetFullPath(ConfigPath);
                 Configs = JsonConvert.DeserializeObject<Dictionary<Rectangle, WinGridConfig>>(File.ReadAllText(path));
             }

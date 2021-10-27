@@ -1,17 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+
 
 namespace WinGridApp
 {
@@ -28,7 +22,22 @@ namespace WinGridApp
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WinGrid");
+            if(!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            Environment.CurrentDirectory = dir;
+            Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
+
             WinGrid = new WinGrid();
+        }
+
+        private void Current_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            App.Log($"Exception: {e.Exception}");
+            Environment.Exit(1);
         }
     }
 }
