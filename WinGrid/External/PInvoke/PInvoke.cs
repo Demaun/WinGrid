@@ -38,6 +38,9 @@ public static class PInvoke
         internal const int WH_KEYBOARD_LL = 13;
     }
 
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
 
@@ -54,6 +57,26 @@ public static class PInvoke
     {
         return SetWindowPos(hWnd, IntPtr.Zero, x, y, Math.Max(0, w), Math.Max(0, h), SWP.NOOWNERZORDER | SWP.NOCOPYBITS | SWP.NOACTIVATE);
     }
+
+    public enum SW : int
+    {
+        HIDE = 0,
+        SHOWNORMAL = 1,
+        SHOWMINIMIZED = 2,
+        SHOWMAXIMIZED = 3,
+        SHOWNOACTIVATE = 4,
+        SHOW = 5,
+        MINIMIZE = 6,
+        SHOWMINNOACTIVE = 7,
+        SHOWNA = 8,
+        RESTORE = 9,
+        SHOWDEFAULT = 10
+    }
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    public static bool UnmaximizeWindow(IntPtr hwnd) => ShowWindowAsync(hwnd, (int)SW.SHOWNORMAL);
+    public static bool MaximizeWindow(IntPtr hwnd) => ShowWindowAsync(hwnd, (int)SW.SHOWMAXIMIZED);
+    
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -82,6 +105,39 @@ public static class PInvoke
             Right = (int)Math.Round(right);
             Top = (int)Math.Round(top);
             Bottom = (int)Math.Round(bottom);
+        }
+        public RECT(Rectangle rect)
+        {
+            Left = rect.Left;
+            Right = rect.Right;
+            Top = rect.Top;
+            Bottom = rect.Bottom;
+        }
+
+        public static bool operator ==(RECT a, RECT b)
+        {
+            return a.Left == b.Left &&
+                   a.Right == b.Right &&
+                   a.Top == b.Top &&
+                   a.Bottom == b.Bottom;
+        }
+        public static bool operator !=(RECT a, RECT b)
+        {
+            return !(a == b);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is RECT rECT &&
+                   Left == rECT.Left &&
+                   Top == rECT.Top &&
+                   Right == rECT.Right &&
+                   Bottom == rECT.Bottom;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
         }
     }
 }

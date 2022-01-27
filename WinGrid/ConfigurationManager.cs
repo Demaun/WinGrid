@@ -21,6 +21,13 @@ namespace WinGridApp
         public Dictionary<Rectangle, WinGridConfig> Configs { get; private set; }
 
         public Rectangle Bounds { get; set; } = new Rectangle();
+        public IEnumerable<KeyValuePair<Rectangle, WinGridConfig>> CurrentConfigs 
+        { 
+            get
+            {
+                return Configs.Where(c => c.Value.Visibility == Visibility.Visible);
+            } 
+        }
 
         public ConfigurationManager()
         {
