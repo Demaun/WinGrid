@@ -14,7 +14,7 @@ namespace WinGridApp
     /// </summary>
     public partial class MainWindow : Window
     {
-        public WinGrid WinGrid;
+        public static WinGrid WinGrid;
         public MainWindow()
         {
             InitializeComponent();
@@ -30,8 +30,9 @@ namespace WinGridApp
             }
             Environment.CurrentDirectory = dir;
             Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
-
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             WinGrid = new WinGrid();
+            Close();
         }
 
         private void Current_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)

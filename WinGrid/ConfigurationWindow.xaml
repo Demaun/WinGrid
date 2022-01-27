@@ -6,69 +6,27 @@
         xmlns:local="clr-namespace:WinGridApp"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="WinGrid Configuration" Height="450" Width="800"
+        Title="WinGrid Configuration" MinWidth="300"
         d:DataContext="{d:DesignInstance IsDesignTimeCreatable=False, Type=local:ConfigurationManager}"
         WindowStyle="ToolWindow"
         SizeToContent="WidthAndHeight"
-        ResizeMode="NoResize">
+        ResizeMode="CanResize">
     <Window.Resources>
         <sys:Double x:Key="mul">.15</sys:Double>
     </Window.Resources>
     <StackPanel>
-        <Grid Width="{Binding Bounds.Width, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-              Height="{Binding Bounds.Height, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-              Margin="16">
-            
+        <Grid Margin="16">
             <ItemsControl 
                     ItemsSource="{Binding Configs}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <Canvas/>
+                        <StackPanel/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid 
-                            Visibility="{Binding Value.Visibility}"
-                            Width="{Binding Key.Width, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-                            Height="{Binding Key.Height, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-                            >
-                            <Grid.LayoutTransform>
-                                <TranslateTransform 
-                                    X="{Binding Key.X, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-                                    Y="{Binding Key.Y, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"/>
-                            </Grid.LayoutTransform>
-                            <Grid.RenderTransform>
-                                <TranslateTransform 
-                                    X="{Binding Key.X, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"
-                                    Y="{Binding Key.Y, Converter={StaticResource MultiplyConverter}, ConverterParameter={StaticResource mul}}"/>
-                            </Grid.RenderTransform>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="auto"/>
-                            </Grid.RowDefinitions>
-                            <Rectangle 
-                                Fill="Transparent" 
-                                Stroke="Black" 
-                                StrokeThickness="2"
-                                Grid.ColumnSpan="2"
-                                Grid.RowSpan="2"
-                                Margin="1"/>
-                            <Slider Minimum="1" Maximum="12" SmallChange="1" LargeChange="1" 
-                                    Value="{Binding Value.WidthDivisions}"
-                                    Grid.Row="1"
-                                    Margin="8"/>
-                            <Slider Minimum="1" Maximum="12" SmallChange="1" LargeChange="1" 
-                                    Value="{Binding Value.HeightDivisions}"
-                                    Orientation="Vertical"
-                                    Grid.Column="1"
-                                    Margin="8"/>
-
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid Visibility="{Binding Value.Visibility}">
+                            <StackPanel VerticalAlignment="Center" Grid.Column="1">
                                 <TextBlock Margin="2">
                                     Screen:
                                     <Run Text="{Binding Key.X}"/>,
@@ -76,12 +34,14 @@
                                     <Run Text="{Binding Key.Width}"/>,
                                     <Run Text="{Binding Key.Height}"/>
                                 </TextBlock>
-                                <TextBlock Margin="2">
-                                    X divisions: <Run Text="{Binding Value.WidthDivisions}"/>
-                                </TextBlock>
-                                <TextBlock Margin="2">
-                                    Y divisions: <Run Text="{Binding Value.HeightDivisions}"/>
-                                </TextBlock>
+                                <DockPanel Margin="32, 4, 4, 4">
+                                    <TextBlock Margin="2"> X divisions:  </TextBlock>
+                                    <TextBox Text="{Binding Value.WidthDivisions}" MaxLength="1"/>
+                                </DockPanel>
+                                <DockPanel Margin="32, 4, 4, 4">
+                                    <TextBlock Margin="2"> Y divisions:  </TextBlock>
+                                    <TextBox Text="{Binding Value.HeightDivisions}" MaxLength="1"/>
+                                </DockPanel>
                             </StackPanel>
                         </Grid>
                     </DataTemplate>

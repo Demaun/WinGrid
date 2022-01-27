@@ -12,6 +12,9 @@ namespace WinGridApp
 {
     public class WinGridConfig: INotifyPropertyChanged
     {
+        public const int MinDivisions = 1;
+        public const int MaxDivisions = 6;
+
         [JsonIgnore]
         public Visibility Visibility { get; set; } = Visibility.Collapsed;
 
@@ -20,15 +23,12 @@ namespace WinGridApp
         {
             get
             {
-                return _widthDivisions > 0 ? _widthDivisions : (_widthDivisions = 1);
+                return (_widthDivisions = Math.Max(Math.Min(_widthDivisions, MaxDivisions), MinDivisions));
             }
             set
             {
-                if (value > 0)
-                {
-                    _widthDivisions = value;
-                    OnPropertyChanged();
-                }
+                _widthDivisions = Math.Max(Math.Min(value, MaxDivisions), MinDivisions);
+                OnPropertyChanged();
             }
         }
 
@@ -37,13 +37,13 @@ namespace WinGridApp
         {
             get
             {
-                return _heightDivisions > 0 ? _heightDivisions : (_heightDivisions = 1);
+                return (_heightDivisions = Math.Max(Math.Min(_heightDivisions, MaxDivisions), MinDivisions));
             }
             set
             {
                 if(value > 0)
                 {
-                    _heightDivisions = value;
+                    _heightDivisions = Math.Max(Math.Min(value, MaxDivisions), MinDivisions);
                     OnPropertyChanged();
                 }
             }

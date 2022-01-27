@@ -8,6 +8,9 @@ using System.Drawing;
 using Rect = PInvoke.RECT;
 using System.Threading.Tasks;
 using refactorsaurusrex;
+using Window = System.Windows.Window;
+using Button = System.Windows.Controls.Button;
+using System.Text;
 
 namespace WinGridApp
 {
@@ -15,452 +18,187 @@ namespace WinGridApp
     {
         public WinGrid()
         {
-            Configuration = new ConfigurationManager();
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, () =>
+            _hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Escape, () =>
             {
-                lock (this)
+                if(_windows.Count > 0 || _configWindow != null)
                 {
-                    if (ConfigWindow == null || !ConfigWindow.IsVisible)
-                    {
-                        ConfigWindow?.Close();
-                        ConfigWindow = new ConfigurationWindow(this, Configuration);
-                        ConfigWindow.Show();
-                        ConfigWindow.Activate();
-                    }
-                    else
-                    {
-                        ConfigWindow.Close();
-                        ConfigWindow = null;
-                    }
+                    CloseConfigWindow();
+                    ClearWindows();
+                    return;
+                }
+
+                IntPtr hwnd = PInvoke.GetForegroundWindow();
+                var sb = new StringBuilder(100);
+                try
+                {
+                    var windowTextLen = PInvoke.GetWindowText(hwnd, sb, 100);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception: {ex}");
+                }
+                var windowText = sb.ToString();
+                Console.WriteLine($"Window text: '{windowText}'");
+                if(windowText == "" || windowText == "Search")
+                {
+                    return;
+                }
+                else if(windowText == "WinGridSelection" || _windows.Count > 0)
+                {
+                    ClearWindows();
+                }
+                _window = hwnd;
+                bool first = true;
+                foreach (var pair in _configuration.CurrentConfigs)
+                {
+                    var screen = Screen.AllScreens.Where(s => s.Bounds == pair.Key).First();
+                    var window = new SelectionWindow(first, pair.Value.HeightDivisions, pair.Value.WidthDivisions);
+                    window.Left = screen.WorkingArea.Left;
+                    window.Width = screen.WorkingArea.Width;
+                    window.Top = screen.WorkingArea.Top;
+                    window.Height = screen.WorkingArea.Height;
+                    window.ClickDown += Window_ClickDown;
+                    window.ClickUp += Window_ClickUp;
+                    window.ConfigButtonClick += ShowConfigWindow;
+                    window.ClickDrag += Window_ClickDrag;
+                    window.PreviewMouseUp += Window_PreviewMouseUp;
+                    _windows.Add(window);
+                    first = false;
+                    window.Show();
                 }
             }));
-
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Left,                                 () => MoveWindow(Direction.Left, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Right,                                () => MoveWindow(Direction.Right, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Up,                                   () => MoveWindow(Direction.Up, MoveType.Normal)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Down,                                 () => MoveWindow(Direction.Down, MoveType.Normal)));
-
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Left,                    () => MoveWindow(Direction.Left, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Right,                   () => MoveWindow(Direction.Right, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Up,                      () => MoveWindow(Direction.Up, MoveType.Expand)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Alt | KeysEx.Down,                    () => MoveWindow(Direction.Down, MoveType.Expand)));
-
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Left,     () => MoveWindow(Direction.Left, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Right,    () => MoveWindow(Direction.Right, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Up,       () => MoveWindow(Direction.Up, MoveType.Contract)));
-            Hooks.Add(GetHook(KeysEx.WinLogo | KeysEx.Shift | KeysEx.Alt | KeysEx.Down,     () => MoveWindow(Direction.Down, MoveType.Contract)));
         }
 
-        private List<KeyboardHook> Hooks = new List<KeyboardHook>();
-        private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
-        private ConfigurationManager Configuration;
-        private System.Windows.Window ConfigWindow;
-        private Dictionary<IntPtr, AnimationArgs> CurrentAnimations = new Dictionary<IntPtr, AnimationArgs>();
-        private Task AnimationTask;
-
-        private const int Interval = 1;
-        private static readonly Size Left = new Size(-Interval, 0);
-        private static readonly Size Right = new Size(Interval, 0);
-        private static readonly Size Up = new Size(0, -Interval);
-        private static readonly Size Down = new Size(0, Interval);
-        private static readonly Dictionary<Direction, Size> Cardinal = new Dictionary<Direction, Size>
+        private void Window_PreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            {Direction.Left, Left },
-            {Direction.Right, Right },
-            {Direction.Up, Up },
-            {Direction.Down, Down }
-        };
-        private static readonly TimeSpan AnimationDuration = TimeSpan.FromMilliseconds(100);
-        private static readonly TimeSpan AnimationInterval = TimeSpan.FromSeconds(1 / 120d);
-
-        #region Moving
-
-        public void MoveWindow(Direction direction, MoveType moveType)
-        {
-            Task.Run(() =>
+            if(_downButtons.Count > 0)
             {
-                var (ptr, start, end) = GetAnimationArgs(direction, moveType);
-                
-                lock (CurrentAnimations)
-                {
-                    if(CurrentAnimations.ContainsKey(ptr))
-                    {
-                        (ptr, start, end) = GetAnimationArgs(direction, moveType, ptr, CurrentAnimations[ptr].end);
-                        var args = new AnimationArgs()
-                        {
-                            ptr = ptr,
-                            t = 0,
-                            start = CurrentAnimations[ptr].current,
-                            end = end,
-                        };
-                        CurrentAnimations[ptr] = args;
-                    }
-                    else
-                    {
-                        var args = new AnimationArgs()
-                        {
-                            ptr = ptr,
-                            t = 0,
-                            start = start,
-                            end = end,
-                        };
-                        CurrentAnimations.Add(ptr, args);
-                    }
-                }
-                Animate();
-            });
+                Window_ClickUp(_downButtons.First());
+            }
         }
 
-        private void Animate()
+        private void Window_ClickDrag(Button obj)
         {
-            lock(this)
+            if(_isMouseDown)
             {
-                if(AnimationTask == null)
+                obj.IsEnabled = false;
+                _downButtons.Add(obj);
+            }
+        }
+
+        private void Window_ClickUp(Button obj)
+        {
+            var offset = obj.PointToScreen(new System.Windows.Point(0, 0));
+            var bounds = new Rectangle((int)offset.X, (int)offset.Y, (int)obj.ActualWidth, (int)obj.ActualHeight);
+
+            Console.WriteLine($"UP: {bounds}");
+            foreach (var btn in _downButtons)
+            {
+                obj.IsEnabled = true;
+                offset = btn.PointToScreen(new System.Windows.Point(0, 0));
+                var downBounds = new Rectangle((int)offset.X, (int)offset.Y, (int)btn.ActualWidth, (int)btn.ActualHeight);
+
+                Console.WriteLine($"DOWN: {downBounds}");
+                bounds = Rectangle.Union(bounds, downBounds);
+            }
+
+            ClearWindows();
+            Console.WriteLine($"BOUNDS: {bounds}");
+            try
+            {
+                Rect oldRect = new Rect();
+                Rect currentRect = new Rect();
+                PInvoke.GetWindowRect(_window, ref oldRect);
+                PInvoke.SetWindowRect(_window, new Rect(bounds));
+                PInvoke.GetWindowRect(_window, ref currentRect);
+                if (oldRect == currentRect)
                 {
-                    AnimationTask = Task.Run(async () =>
+                    Task.Run(async () =>
                     {
-                        HashSet<IntPtr> remove = new HashSet<IntPtr>();
-                        DateTime lastLoopTime = DateTime.Now - AnimationInterval;
-                        while(true)
+                        try
                         {
-                            remove.Clear();
-
-                            DateTime startTime = DateTime.Now;
-
-                            lock(CurrentAnimations)
+                            PInvoke.UnmaximizeWindow(_window);
+                            for (int i = 0; i < 7; i++)
                             {
-                                foreach(var pair in CurrentAnimations)
-                                {
-                                    var args = pair.Value;
-                                    var dt = (startTime - lastLoopTime).TotalMilliseconds / AnimationDuration.TotalMilliseconds;
-                                    args.t = Easing.Clamp01(pair.Value.t + (float)dt);
-                                    var ts = Easing.SmoothEnd(args.t, 2, Easing.BoundType.Clamp);
-
-                                    var x = Easing.Lerp(args.start.Left, args.end.Left, ts);
-                                    var y = Easing.Lerp(args.start.Top, args.end.Top, ts);
-                                    var r = Easing.Lerp(args.start.Right, args.end.Right, ts);
-                                    var b = Easing.Lerp(args.start.Bottom, args.end.Bottom, ts);
-                                    args.current = new Rect(x, y, r, b);
-
-                                    PInvoke.SetWindowRect(args.ptr, args.current);
-                                    if(args.t >= 1)
-                                    {
-                                        remove.Add(args.ptr);
-                                    }
-                                }
-
-                                foreach(var ptr in remove)
-                                {
-                                    CurrentAnimations.Remove(ptr);
-                                }
-
-                                if (CurrentAnimations.Count == 0) break;
-                            }
-
-                            lastLoopTime = DateTime.Now;
-                            var waitDuration = DateTime.Now + AnimationInterval - startTime;
-                            if (waitDuration > TimeSpan.Zero)
-                            {
-                                await Task.Delay(waitDuration);
-                            }
-                            else
-                            {
-                                Console.WriteLine("ZeroWait");
+                                await Task.Delay(i * 10);
+                                PInvoke.SetWindowRect(_window, new Rect(bounds));
                             }
                         }
-                    }).ContinueWith(t =>
-                    {
-                        lock(this)
-                        {
-                            AnimationTask = null;
-                        }
+                        catch { }
                     });
                 }
             }
+            catch { }
         }
 
-        private (IntPtr handle, Rect current, Rect target) GetAnimationArgs(Direction direction, MoveType moveType)
+        private void Window_ClickDown(Button obj)
         {
-            var handleForeground = PInvoke.GetForegroundWindow();
-
-            var start = new Rect();
-            var success = PInvoke.GetWindowRect(handleForeground, ref start);
-
-            if (!success) return (IntPtr.Zero, new Rect(), new Rect());
-
-            return GetAnimationArgs(direction, moveType, handleForeground, start);
+            _isMouseDown = true;
+            obj.ReleaseMouseCapture();
+            Window_ClickDrag(obj);
         }
-        private (IntPtr handle, Rect current, Rect target) GetAnimationArgs(Direction direction, MoveType moveType, IntPtr handleForeground, Rect start)
-        {
-            var end = start;
 
-            switch (moveType)
+        private List<KeyboardHook> _hooks = new List<KeyboardHook>();
+        private Dispatcher Dispatcher = Dispatcher.CurrentDispatcher;
+        private ConfigurationManager _configuration = new ConfigurationManager();
+        private Window _configWindow;
+        private List<Window> _windows = new List<Window>();
+        private HashSet<Button> _downButtons = new HashSet<Button>();
+        private bool _isMouseDown = false;
+        private IntPtr _window;
+
+
+        private void ShowConfigWindow()
+        {
+            lock (this)
             {
-                case MoveType.Normal:
-                    end = TranslateWindow(start, direction);
-                    break;
-                case MoveType.Expand:
-                    end = ExpandWindow(start, direction);
-                    break;
-                case MoveType.Contract:
-                    end = ContractWindow(start, direction);
-                    break;
-            }
-
-            return (handleForeground, start, end);
-        }
-
-        private Rect TranslateWindow(Rect rect, Direction direction)
-        {
-
-            if (!IsAligned(rect))
-            {
-                // If we're not ON grid, move to the enclosing sector,
-                // and fill the screen in the non-given axis.
-                var screen = Screen.FromPoint(rect.Center);
-                var sector = GetSector(rect.Center);
-
-                if (direction == Direction.Down || direction == Direction.Up)
+                if (_configWindow == null || !_configWindow.IsVisible)
                 {
-                    rect.Left = screen.WorkingArea.Left;
-                    rect.Right = screen.WorkingArea.Right;
-                    rect.Top = sector.Top;
-                    rect.Bottom = sector.Bottom;
+                    _configWindow?.Close();
+                    _configWindow = new ConfigurationWindow(this, _configuration);
+                    _configWindow.Show();
+                    _configWindow.Activate();
                 }
                 else
                 {
-                    rect.Top = screen.WorkingArea.Top;
-                    rect.Bottom = screen.WorkingArea.Bottom;
-                    rect.Left = sector.Left;
-                    rect.Right = sector.Right;
+                    CloseConfigWindow();
                 }
-            }
-            else
-            {
-                var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), false);
-                if (direction == Direction.Up)
-                {
-                    rect.Top = newSector.Top;
-                    rect.Bottom = newSector.Bottom;
-                }
-                else if (direction == Direction.Down)
-                {
-                    rect.Bottom = newSector.Bottom;
-                    rect.Top = newSector.Top;
-                }
-                else if (direction == Direction.Left)
-                {
-                    rect.Left = newSector.Left;
-                    rect.Right = newSector.Right;
-                }
-                else //if (direction == Direction.Right)
-                {
-                    rect.Right = newSector.Right;
-                    rect.Left = newSector.Left;
-                }
-            }
 
-            return rect;
+                ClearWindows();
+            }
         }
-
-        private Rect ExpandWindow(Rect rect, Direction direction)
+        private void CloseConfigWindow()
         {
-            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), false);
-
-            if (direction == Direction.Up)
+            if(_configWindow != null)
             {
-                rect.Top = newSector.Top;
+                _configWindow.Close();
+                _configWindow = null;
             }
-            else if (direction == Direction.Down)
-            {
-                rect.Bottom = newSector.Bottom;
-            }
-            else if (direction == Direction.Left)
-            {
-                rect.Left = newSector.Left;
-            }
-            else //if (direction == Direction.Right)
-            {
-                rect.Right = newSector.Right;
-            }
-
-            return rect;
         }
 
-        private Rect ContractWindow(Rect rect, Direction direction)
+        private void ClearWindows()
         {
-            var newSector = GetSector(direction, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), true);
-            int minW = newSector.Width;
-            int minH = newSector.Height;
-
-            if (direction == Direction.Up)
+            _isMouseDown = false;
+            _downButtons.Clear();
+            foreach (var window in _windows)
             {
-                rect.Bottom = newSector.Bottom;
-                rect.Top = Math.Min(rect.Top, rect.Bottom - minH);
+                window.Close();
             }
-            else if (direction == Direction.Down)
-            {
-                rect.Top = newSector.Top;
-                rect.Bottom = Math.Max(rect.Bottom, rect.Top + minH);
-            }
-            else if (direction == Direction.Left)
-            {
-                rect.Right = newSector.Right;
-                rect.Left = Math.Min(rect.Left, rect.Right - minW);
-            }
-            else //if (direction == Direction.Right)
-            {
-                rect.Left = newSector.Left;
-                rect.Right = Math.Max(rect.Right, rect.Left + minW);
-            }
-
-            return rect;
+            _windows.Clear();
         }
-
-        #endregion
-
-        #region Queries
-
-        public bool IsAligned(Rect rect)
-        {
-            var screen = Screen.FromPoint(new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2));
-            var config = Configuration.Configs[screen.Bounds];
-            rect.Left -= screen.WorkingArea.Left;
-            rect.Right -= screen.WorkingArea.Left;
-            rect.Top -= screen.WorkingArea.Top;
-            rect.Bottom -= screen.WorkingArea.Top;
-
-            const int tolerance = 2;
-            int w = screen.WorkingArea.Width / config.WidthDivisions;
-            int h = screen.WorkingArea.Height / config.HeightDivisions;
-            return rect.Left % w < tolerance &&
-                   rect.Right % w < tolerance &&
-                   rect.Top % h < tolerance &&
-                   rect.Bottom % h < tolerance;
-        }
-
-        /// <summary>
-        /// Get the sector encapsulating a given point.
-        /// </summary>
-        public Rectangle GetSector(Point fromPoint)
-        {
-            var screen = Screen.FromPoint(fromPoint);
-            var config = Configuration.Configs[screen.Bounds];
-            double x, y, w, h;
-
-            w = screen.WorkingArea.Width / (double)config.WidthDivisions;
-            h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-
-            x = Math.Floor((fromPoint.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
-            y = Math.Floor((fromPoint.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
-
-            return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
-        }
-
-        /// <summary>
-        /// Get the sector adjacent to a given (potentially misaligned) zone.
-        /// </summary>
-        public Rectangle GetSector(Direction direction, Rectangle fromSector, bool contract)
-        {
-            Point point = GetEdge(fromSector, direction, contract);
-
-            if (contract)
-            {
-                var screen = Screen.FromPoint(point);
-                var config = Configuration.Configs[screen.Bounds];
-                double x, y, w, h;
-                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
-                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-
-                point.X += (int)(Cardinal[direction].Width * (w + Interval));
-                point.Y += (int)(Cardinal[direction].Height * (h + Interval));
-
-                screen = Screen.FromPoint(point);
-                config = Configuration.Configs[screen.Bounds];
-
-                if (!screen.WorkingArea.Contains(point))
-                {
-                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
-                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
-                }
-
-                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
-                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-
-                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
-                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
-
-                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
-            }
-            else
-            {
-                var screen = Screen.FromPoint(point);
-                do
-                {
-                    point = Point.Add(point, Cardinal[direction]);
-
-                } while (Configuration.Bounds.Contains(point) && !screen.WorkingArea.Contains(point) && screen.Bounds.Contains(point));
-
-                screen = Screen.FromPoint(point);
-
-                if (!screen.WorkingArea.Contains(point))
-                {
-                    point = new Point(Clamp(point.X, screen.WorkingArea.Left + Interval, screen.WorkingArea.Right - Interval),
-                                      Clamp(point.Y, screen.WorkingArea.Top + Interval, screen.WorkingArea.Bottom - Interval));
-                }
-
-                var config = Configuration.Configs[screen.Bounds];
-                double x, y, w, h;
-                w = screen.WorkingArea.Width / (double)config.WidthDivisions;
-                h = screen.WorkingArea.Height / (double)config.HeightDivisions;
-                x = Math.Floor((point.X - screen.WorkingArea.Left) / (double)screen.WorkingArea.Width * config.WidthDivisions) * w + screen.WorkingArea.Left;
-                y = Math.Floor((point.Y - screen.WorkingArea.Top) / (double)screen.WorkingArea.Height * config.HeightDivisions) * h + screen.WorkingArea.Top;
-                return new Rectangle((int)x, (int)y, (int)Math.Ceiling(w), (int)Math.Ceiling(h));
-            }
-        }
-
-        #endregion
 
         #region Config Independent
         public void Close()
         {
             Console.WriteLine("Closing...");
 
-            foreach (var hook in Hooks)
+            foreach (var hook in _hooks)
             {
                 hook.Disengage();
                 hook.Dispose();
             }
 
             Application.Current.Shutdown();
-        }
-
-        public static int Clamp(int value, int min, int max)
-        {
-            return Math.Max(min, Math.Min(value, max));
-        }
-
-        private static Point GetEdge(Rectangle rect, Direction direction, bool opposite)
-        {
-            Point point;
-
-            if (direction == Direction.Up)
-            {
-                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Bottom : rect.Top);
-            }
-            else if (direction == Direction.Down)
-            {
-                point = new Point(rect.Left + rect.Width / 2, opposite ? rect.Top : rect.Bottom);
-            }
-            else if (direction == Direction.Left)
-            {
-                point = new Point(opposite ? rect.Right : rect.Left, rect.Top + rect.Height / 2);
-            }
-            else
-            {
-                point = new Point(opposite ? rect.Left : rect.Right, rect.Top + rect.Height / 2);
-            }
-            return point;
         }
 
         private KeyboardHook GetHook(KeysEx keys, Action action)
@@ -472,15 +210,6 @@ namespace WinGridApp
             hook.Pressed += (s, e) => Dispatcher.Invoke(action);
             hook.Engage();
             return hook;
-        }
-
-        private class AnimationArgs
-        {
-            public IntPtr ptr;
-            public float t;
-            public Rect start;
-            public Rect current;
-            public Rect end;
         }
 
         #endregion
