@@ -51,11 +51,12 @@ namespace WinGridApp
                 bool first = true;
                 foreach (var pair in _configuration.CurrentConfigs)
                 {
+                    var screen = Screen.AllScreens.Where(s => s.Bounds == pair.Key).First();
                     var window = new SelectionWindow(first, pair.Value.HeightDivisions, pair.Value.WidthDivisions);
-                    window.Left = pair.Key.Left;
-                    window.Width = pair.Key.Width;
-                    window.Top = pair.Key.Top;
-                    window.Height = pair.Key.Height;
+                    window.Left = screen.WorkingArea.Left;
+                    window.Width = screen.WorkingArea.Width;
+                    window.Top = screen.WorkingArea.Top;
+                    window.Height = screen.WorkingArea.Height;
                     window.ClickDown += Window_ClickDown;
                     window.ClickUp += Window_ClickUp;
                     window.ConfigButtonClick += ShowConfigWindow;
